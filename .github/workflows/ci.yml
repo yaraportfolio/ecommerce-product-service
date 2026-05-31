@@ -88,8 +88,13 @@ jobs:
       # Exécute les tests API
       - name: Run API tests
         env:
-          DATABASE_URL: postgres://devops_user:devops_password@localhost:5432/products_db
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: products_db
+          DB_USER: devops_user
+          DB_PASSWORD: devops_password
           JWT_SECRET: test_secret_key
+          SERVICE_PORT: 3002
         run: |
           chmod +x ./testapi/test-api.sh
           ./testapi/test-api.sh
