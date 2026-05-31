@@ -45,11 +45,12 @@ jobs:
           POSTGRES_DB: products_db
           POSTGRES_USER: devops_user
           POSTGRES_PASSWORD: devops_password
+        # Vérifie que PostgreSQL est prêt toutes les 10 secondes (timeout 5s, max 3 tentatives)
         options: >-
-          --health-cmd pg_isready        # Vérifie que PostgreSQL est prêt
-          --health-interval 10s           # Vérifie toutes les 10 secondes
-          --health-timeout 5s             # Timeout de 5 secondes
-          --health-retries 3              # Réessaye 3 fois
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 3
         ports:
           - 5432:5432  # Expose PostgreSQL sur le port 5432
 
@@ -57,10 +58,6 @@ jobs:
       # Télécharge le code du repository
       - name: Checkout code
         uses: actions/checkout@v4
-
-      # Génère le tag Docker (7 premiers caractères du commit SHA)
-      - name: Generate Docker tag
-        run: echo "DOCKER_TAG=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
 
       # Configure Node.js v20 et active la mise en cache npm
       - name: Setup Node.js
@@ -174,6 +171,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Génère le tag Docker (7 premiers caractères du commit SHA)
+      - name: Generate Docker tag
+        run: echo "DOCKER_TAG=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
 
       # Configure QEMU pour la compilation multi-architecture (ARM, x86, etc)
       - name: Set up QEMU
