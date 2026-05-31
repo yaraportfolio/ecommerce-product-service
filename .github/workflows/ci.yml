@@ -82,7 +82,7 @@ jobs:
       # Charge les données de test dans la base de données
       - name: Setup test database
         run: |
-          mysql -h localhost -u devops_user -pdevops_password products_db < ./testapi/data-test-api.sql
+          mysql -h 127.0.0.1 -u devops_user -pdevops_password products_db < ./testapi/data-test-api.sql
 
       # Exécute les tests API
       - name: Run API tests
