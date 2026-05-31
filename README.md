@@ -62,7 +62,7 @@ Microservice de gestion du catalogue produits — partie de l'architecture micro
 ┌─────────────────────────────────────────────────────────────┐
 │  Job 1 : Test API (parallèle)                              │
 │  └── npm install + test-api.sh : 10-13 tests endpoints      │
-│  └── Dépendance : PostgreSQL 15                             │
+│  └── Dépendance : MariaDB 10.11                             │
 ├─────────────────────────────────────────────────────────────┤
 │  Job 2 : Dependency Scanning (parallèle)                    │
 │  └── Trivy FS scan : scanne les vulnérabilités dépendances  │
@@ -95,14 +95,15 @@ npm start
 # ✅ http://localhost:3002/api/products/health
 ```
 
-**Avec PostgreSQL (pour les tests) :**
+**Avec MariaDB (pour les tests) :**
 ```bash
-docker run -d --name postgres-test \
-  -e POSTGRES_DB=products_db \
-  -e POSTGRES_USER=devops_user \
-  -e POSTGRES_PASSWORD=devops_password \
-  -p 5432:5432 \
-  postgres:15-alpine
+docker run -d --name mariadb-test \
+  -e MARIADB_DATABASE=products_db \
+  -e MARIADB_USER=devops_user \
+  -e MARIADB_PASSWORD=devops_password \
+  -e MARIADB_ROOT_PASSWORD=root_password \
+  -p 3306:3306 \
+  mariadb:10.11
 
 npm test
 ```
@@ -114,7 +115,6 @@ npm test
 | Variable | Description | Valeur | Requis |
 |----------|-------------|--------|--------|
 | `PORT` | Port du service | `3002` | ✅ |
-
 | `NODE_ENV` | Environnement | `production` | ❌ |
 | `DB_HOST` | IP serveur MariaDB | `192.168.56.115` | ✅ |
 | `DB_PORT` | Port MariaDB | `3306` | ✅ |
