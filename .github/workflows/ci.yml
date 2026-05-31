@@ -37,22 +37,23 @@ jobs:
       contents: read        # Peut lire le code du repo
       checks: write         # Peut écrire les résultats des tests
 
-    # Service PostgreSQL lancé en parallèle pour les tests
+    # Service MariaDB lancé en parallèle pour les tests
     services:
-      postgres:
-        image: postgres:15-alpine  # Image PostgreSQL légère
+      mariadb:
+        image: mariadb:10.11
         env:
-          POSTGRES_DB: products_db
-          POSTGRES_USER: devops_user
-          POSTGRES_PASSWORD: devops_password
-        # Vérifie que PostgreSQL est prêt toutes les 10 secondes (timeout 5s, max 3 tentatives)
+          MARIADB_ROOT_PASSWORD: root_password
+          MARIADB_DATABASE: products_db
+          MARIADB_USER: devops_user
+          MARIADB_PASSWORD: devops_password
+        # Vérifie que MariaDB est prêt toutes les 10 secondes (timeout 5s, max 3 tentatives)
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 3
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
         ports:
-          - 5432:5432  # Expose PostgreSQL sur le port 5432
+          - 3306:3306  # Expose PostgreSQL sur le port 5432
 
     steps:
       # Télécharge le code du repository
@@ -70,26 +71,24 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      # Attend que PostgreSQL soit complètement démarré
-      - name: Wait for PostgreSQL
+      # Attend que MariaDB soit complètement démarré
+      - name: Wait for MariaDB
         run: |
-          timeout 60 sh -c 'until pg_isready -h localhost -U devops_user; do
-            echo "⏳ Waiting for PostgreSQL instance..."
+          timeout 60 sh -c 'until mysqladmin ping -h localhost -u devops_user -pdevops_password; do
+            echo "⏳ Waiting for MariaDB instance..."
             sleep 2
           done'
 
       # Charge les données de test dans la base de données
       - name: Setup test database
-        env:
-          PGPASSWORD: devops_password
         run: |
-          psql -h localhost -U devops_user -d products_db < ./testapi/data-test-api.sql
+          mysql -h localhost -u devops_user -pdevops_password products_db < ./testapi/data-test-api.sql
 
       # Exécute les tests API
       - name: Run API tests
         env:
           DB_HOST: localhost
-          DB_PORT: 5432
+          DB_PORT: 3306
           DB_NAME: products_db
           DB_USER: devops_user
           DB_PASSWORD: devops_password
