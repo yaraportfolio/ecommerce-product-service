@@ -320,8 +320,8 @@ jobs:
           context: .
           push: true  # Pousse l'image (contrairement au job 3)
           tags: |
-            ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}  # Tag avec SHA du commit
-            ${{ env.DOCKER_IMAGE }}:latest                 # Tag "latest" pour la dernière version
+            ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
+            ${{ env.DOCKER_IMAGE }}:latest
           cache-from: type=gha           # Réutilise le cache GitHub Actions
           cache-to: type=gha,mode=max    # Sauvegarde le cache pour les prochains builds
 
