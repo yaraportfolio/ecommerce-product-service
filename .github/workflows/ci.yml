@@ -22,8 +22,6 @@ on:
 env:
   # Nom complet de l'image Docker sur GitHub Container Registry
   DOCKER_IMAGE: ghcr.io/${{ github.repository_owner }}/product-service
-  # Tag unique basé sur les 7 premiers caractères du commit SHA
-  DOCKER_TAG: ${{ github.sha | slice(0,7) }}
   SERVICE_PORT: 3002
 
 jobs:
@@ -59,6 +57,10 @@ jobs:
       # Télécharge le code du repository
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # Génère le tag Docker (7 premiers caractères du commit SHA)
+      - name: Generate Docker tag
+        run: echo "DOCKER_TAG=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
 
       # Configure Node.js v20 et active la mise en cache npm
       - name: Setup Node.js
