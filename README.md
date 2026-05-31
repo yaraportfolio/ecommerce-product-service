@@ -1,15 +1,15 @@
 # 📦 Product Service — Microservice Catalogue
 
-![Node.js](https://img.shields.io/badge/Node.js-18-339933?logo=nodedotjs&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-20-339933?logo=nodedotjs&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-4.x-000000?logo=express&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
-![Prometheus](https://img.shields.io/badge/Prometheus-metrics-E6522C?logo=prometheus&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-CI/CD-2088FF?logo=github&logoColor=white)
 ![Trivy](https://img.shields.io/badge/Trivy-security_scan-1904DA?logo=aqua&logoColor=white)
-![Version](https://img.shields.io/badge/version-3.2-blue)
+![GHCR](https://img.shields.io/badge/GHCR-registry-24292e?logo=github&logoColor=white)
 
 Microservice de gestion du catalogue produits — partie de l'architecture microservices e-commerce déployée sur **Kubernetes** (Helm) ou **Docker Swarm** (Kong Gateway).
 
-> 💡 **Objectif Portfolio** : Ce service illustre le pipeline CI/CD complet — test → build Docker multi-stage → scan Trivy → push Harbor/Docker Hub → déploiement Helm.
+> 💡 **Objectif Portfolio** : Ce service illustre le pipeline CI/CD complet avec GitHub Actions — test → build Docker → scan de vulnérabilités → push GitHub Container Registry → déploiement Helm.
 
 ---
 
@@ -53,52 +53,58 @@ Microservice de gestion du catalogue produits — partie de l'architecture micro
 
 ---
 
-## 🔄 Pipeline CI/CD
+## 🔄 Pipeline CI/CD (GitHub Actions)
 
 ```
-                        GitLab Push / PR
+                    GitHub Push / Pull Request
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Stage 1 — Test                                             │
-│  └── test-api.sh : 10-13 tests endpoints API                │
+│  Job 1 : Test API (parallèle)                              │
+│  └── npm install + test-api.sh : 10-13 tests endpoints      │
+│  └── Dépendance : PostgreSQL 15                             │
 ├─────────────────────────────────────────────────────────────┤
-│  Stage 2 — Build                                            │
-│  └── Docker multi-stage : Node 18 → Node 18 Alpine (~80MB) │
+│  Job 2 : Dependency Scanning (parallèle)                    │
+│  └── Trivy FS scan : scanne les vulnérabilités dépendances  │
 ├─────────────────────────────────────────────────────────────┤
-│  Stage 3 — Security Scan                                    │
-│  ├── security-scan.sh    : Trivy CVE scan                   │
-│  └── git-security-scan.sh: Détection secrets dans le code   │
+│  Job 3 : Build Docker Image (après tests réussis)          │
+│  └── Docker multi-stage : Node 20 Alpine                    │
+│  └── Sauvegarde l'image en artefact                         │
 ├─────────────────────────────────────────────────────────────┤
-│  Stage 4 — Push                                             │
-│  ├── Harbor   : harbor.myvbox.com/ecommerce/product-service  │
-│  └── DockerHub: yaramahi/product-service:v3.2               │
+│  Job 4 : Scan Container (main uniquement)                  │
+│  └── Trivy container scan : détecte vulnérabilités critiques│
+├─────────────────────────────────────────────────────────────┤
+│  Job 5 : Push to GHCR (main uniquement)                    │
+│  └── GitHub Container Registry : ghcr.io/...               │
+│  └── Tags : commit-sha + latest                            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-<details>
-  <summary><strong>🦊⚙️ Afficher l'Architecture du Pipeline CI/CD (Gitlab)</strong></summary>
-
-![Pipeline CI/CD](https://gitlab.com/yara_portfolio/devops/ecommerce/ecommerce-frontend/-/raw/main/.img/Pipeline-CICD-GitLab.png)
-
-</details>
-
-**Fichiers CI/CD :**
-- `.gitlab-ci.yml` — Pipeline GitLab
-- `Jenkinsfile-ci` — Pipeline Jenkins (stages: Test → Build → Scan → Push)
-- `Jenkins Harbor Guide` — Guide setup Jenkins + Harbor
+**Fichier CI/CD :**
+- `.github/workflows/ci.yml` — Pipeline GitHub Actions complète avec tests, scans de sécurité et déploiement
 
 ---
 
 ## ⚡ Quick Start
 
 ```bash
-git clone https://gitlab.com/yara_portfolio/devops/ecommerce/microservice/product-service.git
-cd product-service
-cp .env.example .env && nano .env
-
-npm install && npm start
+git clone https://github.com/yaraportfolio/ecommerce-product-service.git
+cd ecommerce-product-service
+npm install
+npm start
 # ✅ http://localhost:3002/api/products/health
+```
+
+**Avec PostgreSQL (pour les tests) :**
+```bash
+docker run -d --name postgres-test \
+  -e POSTGRES_DB=products_db \
+  -e POSTGRES_USER=devops_user \
+  -e POSTGRES_PASSWORD=devops_password \
+  -p 5432:5432 \
+  postgres:15-alpine
+
+npm test
 ```
 
 ---
@@ -122,7 +128,7 @@ npm install && npm start
 ## 📁 Structure du Projet
 
 ```
-product-service/
+ecommerce-product-service/
 ├── src/
 │   ├── config/database.js        # Pool de connexions MariaDB
 │   ├── middleware/
@@ -133,11 +139,11 @@ product-service/
 ├── testapi/
 │   ├── test-api.sh               # Tests intégration (10-13 tests)
 │   ├── data-test-api.sql         # Données de test BD
-│   ├── security-scan.sh          # Scan CVE Trivy
-│   └── git-security-scan.sh      # Détection secrets
+├── .github/workflows/
+│   └── ci.yml                    # Pipeline GitHub Actions
 ├── Dockerfile
-├── Jenkinsfile-ci
-├── .gitlab-ci.yml
+├── package.json
+├── package-lock.json
 └── .env.example
 ```
 
@@ -148,15 +154,40 @@ product-service/
 ### Docker
 
 ```bash
-docker build -t product-service:v3.2 .
+# Build local
+docker build -t product-service:latest .
 
+# Run avec variables d'environnement
+docker run -d \
+  --name product-service \
+  -p 3002:3002 \
+  -e NODE_ENV=production \
+  -e DB_HOST=192.168.56.115 \
+  -e DB_PORT=3306 \
+  -e DB_NAME=ecommerce_db \
+  -e DB_USER=devops_user \
+  -e DB_PASSWORD=devops_password \
+  -e JWT_SECRET=your_secret_min_32_chars \
+  product-service:latest
+```
+
+### Docker (depuis GitHub Container Registry)
+
+```bash
+# Login (remplace TON_GITHUB_TOKEN par un token GitHub)
+echo TON_GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+
+# Pull image
+docker pull ghcr.io/yaraportfolio/product-service:latest
+
+# Run
 docker run -d \
   --name product-service \
   -p 3002:3002 \
   -e DB_HOST=192.168.56.115 \
   -e DB_PASSWORD=devops_password \
   -e JWT_SECRET=your_secret_min_32_chars \
-  product-service:v3.2
+  ghcr.io/yaraportfolio/product-service:latest
 ```
 
 ### Kubernetes (via Helm Chart)
@@ -194,11 +225,12 @@ cd testapi && bash test-api.sh
 
 | Composant | Repository |
 |-----------|------------|
-| 🔐 Auth Service | [auth-service](https://gitlab.com/yara_portfolio/devops/ecommerce/microservice/auth-service) |
-| 🛒 Order Service | [order-service](https://gitlab.com/yara_portfolio/devops/ecommerce/microservice/order-service) |
-| ⭐ Review Service | [review-service](https://gitlab.com/yara_portfolio/devops/ecommerce/microservice/review-service) |
-| ⎈ Helm Chart | [k8s-helm-chart](https://gitlab.com/yara_portfolio/devops/ecommerce/devops-tools/k8s-helm-chart) |
-| 🗄️ Base de données | [ecommerce-database](https://gitlab.com/yara_portfolio/devops/ecommerce/ecommerce-database) |
+| 🔐 Auth Service | [auth-service](https://github.com/yaraportfolio/ecommerce-auth-service) |
+| 🛒 Order Service | [order-service](https://github.com/yaraportfolio/ecommerce-order-service) |
+| ⭐ Review Service | [review-service](https://github.com/yaraportfolio/ecommerce-review-service) |
+| 📦 Product Service | [product-service](https://github.com/yaraportfolio/ecommerce-product-service) |
+| ⎈ Helm Chart | [k8s-helm-chart](https://github.com/yaraportfolio/k8s-helm-chart) |
+| 🗄️ Base de données | [ecommerce-database](https://github.com/yaraportfolio/ecommerce-database) |
 
 ---
 

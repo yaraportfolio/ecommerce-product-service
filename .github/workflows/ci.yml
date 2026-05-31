@@ -1,65 +1,77 @@
 # =================================================================
 # PIPELINE CI/CD : PRODUCT SERVICE (GitHub Actions)
 # =================================================================
+# Ce workflow automatise les tests, la création et le déploiement de
+# l'image Docker pour chaque push sur main/develop et PR.
 
 name: CI/CD
 
+# Événements qui déclenchent le workflow
 on:
   push:
     branches:
-      - main
-      - develop
+      - main      # Déclenche sur push vers main
+      - develop   # Déclenche sur push vers develop
   pull_request:
     branches:
-      - main
-      - develop
-  workflow_dispatch:
+      - main      # Déclenche sur PR vers main
+      - develop   # Déclenche sur PR vers develop
+  workflow_dispatch:  # Permet de déclencher manuellement depuis GitHub
 
+# Variables d'environnement utilisées dans tous les jobs
 env:
-  DOCKER_IMAGE: yaramahi/product-service
-  DOCKER_TAG: v2.1
+  # Nom complet de l'image Docker sur GitHub Container Registry
+  DOCKER_IMAGE: ghcr.io/${{ github.repository_owner }}/product-service
+  # Tag unique basé sur les 7 premiers caractères du commit SHA
+  DOCKER_TAG: ${{ github.sha | slice(0,7) }}
   SERVICE_PORT: 3002
 
 jobs:
   # -----------------------------------------------------------------
   # JOB 1 : TESTS API
+  # Exécute les tests automatisés avec une base de données PostgreSQL
   # -----------------------------------------------------------------
   test_api:
     name: Test API
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # Exécute sur une machine Ubuntu fournie par GitHub
 
     permissions:
-      contents: read
-      checks: write
+      contents: read        # Peut lire le code du repo
+      checks: write         # Peut écrire les résultats des tests
 
+    # Service PostgreSQL lancé en parallèle pour les tests
     services:
       postgres:
-        image: postgres:15-alpine
+        image: postgres:15-alpine  # Image PostgreSQL légère
         env:
           POSTGRES_DB: products_db
           POSTGRES_USER: devops_user
           POSTGRES_PASSWORD: devops_password
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 3
+          --health-cmd pg_isready        # Vérifie que PostgreSQL est prêt
+          --health-interval 10s           # Vérifie toutes les 10 secondes
+          --health-timeout 5s             # Timeout de 5 secondes
+          --health-retries 3              # Réessaye 3 fois
         ports:
-          - 5432:5432
+          - 5432:5432  # Expose PostgreSQL sur le port 5432
 
     steps:
+      # Télécharge le code du repository
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Configure Node.js v20 et active la mise en cache npm
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          cache: npm  # Met en cache node_modules via package-lock.json
 
+      # Installe les dépendances du projet
       - name: Install dependencies
         run: npm install
 
+      # Attend que PostgreSQL soit complètement démarré
       - name: Wait for PostgreSQL
         run: |
           timeout 60 sh -c 'until pg_isready -h localhost -U devops_user; do
@@ -67,12 +79,14 @@ jobs:
             sleep 2
           done'
 
+      # Charge les données de test dans la base de données
       - name: Setup test database
         env:
           PGPASSWORD: devops_password
         run: |
           psql -h localhost -U devops_user -d products_db < ./testapi/data-test-api.sql
 
+      # Exécute les tests API
       - name: Run API tests
         env:
           DATABASE_URL: postgres://devops_user:devops_password@localhost:5432/products_db
@@ -81,51 +95,56 @@ jobs:
           chmod +x ./testapi/test-api.sh
           ./testapi/test-api.sh
 
+      # Sauvegarde le rapport de test (même si les tests échouent)
       - name: Upload test report
-        if: always()
+        if: always()  # S'exécute toujours, même après une erreur
         uses: actions/upload-artifact@v4
         with:
           name: test-api-report
           path: test-api-report.html
-          retention-days: 30
+          retention-days: 30  # Conserve le rapport 30 jours
 
   # -----------------------------------------------------------------
   # JOB 2 : SCAN DÉPENDANCES
+  # Scanne les vulnérabilités dans les dépendances du projet
   # -----------------------------------------------------------------
   dependency_scanning:
     name: Dependency Scanning
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
-      security-events: write
+      contents: read              # Peut lire le code
+      security-events: write      # Peut écrire les résultats de sécurité
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Scanne tous les fichiers du projet pour détecter les vulnérabilités
       - name: Run Trivy vulnerability scanner (filesystem)
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
+          scan-type: 'fs'         # Type de scan : filesystem (tout le projet)
+          scan-ref: '.'           # Répertoire à scanner (root)
+          format: 'sarif'         # Format SARIF pour GitHub Security
           output: 'trivy-results.sarif'
 
+      # Envoie les résultats à GitHub Security pour l'affichage dans l'interface
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
 
+      # Génère un rapport HTML des vulnérabilités trouvées
       - name: Generate Trivy HTML report
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
           scan-ref: '.'
-          format: 'template'
-          template: '@/contrib/html.tpl'
+          format: 'table'         # Format lisible (tableau)
           output: 'dependency-report.html'
 
+      # Sauvegarde le rapport pour consultation
       - name: Upload dependency report
         if: always()
         uses: actions/upload-artifact@v4
@@ -136,92 +155,105 @@ jobs:
 
   # -----------------------------------------------------------------
   # JOB 3 : BUILD IMAGE DOCKER
+  # Crée l'image Docker du service (s'exécute après les tests)
   # -----------------------------------------------------------------
   docker_build:
     name: Build Docker Image
     runs-on: ubuntu-latest
-    needs: [test_api]
+    needs: [test_api]  # Attend que test_api soit réussi avant de démarrer
 
     permissions:
       contents: read
       packages: read
 
+    # S'exécute uniquement sur les branches main et develop
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Configure QEMU pour la compilation multi-architecture (ARM, x86, etc)
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
+      # Configure Docker Buildx pour des builds optimisés
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Crée l'image Docker (sans la pousser pour l'instant)
       - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          push: false
+          context: .              # Utilise le Dockerfile à la racine
+          push: false             # Ne pousse pas encore
           tags: ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
-          outputs: type=docker,dest=/tmp/image.tar
+          outputs: type=docker,dest=/tmp/image.tar  # Sauvegarde en fichier TAR
 
+      # Sauvegarde l'image Docker pour l'utiliser dans les jobs suivants
       - name: Upload Docker image artifact
         uses: actions/upload-artifact@v4
         with:
           name: docker-image
           path: /tmp/image.tar
-          retention-days: 1
+          retention-days: 1  # Conserve 1 jour (temps des jobs suivants)
 
   # -----------------------------------------------------------------
   # JOB 4 : SCAN IMAGE DOCKER
+  # Scanne l'image Docker pour détecter les vulnérabilités (main seulement)
   # -----------------------------------------------------------------
   image_scanning:
     name: Scan Docker Image
     runs-on: ubuntu-latest
-    needs: docker_build
+    needs: docker_build  # Attend que l'image soit créée
 
     permissions:
       contents: read
       security-events: write
 
+    # S'exécute uniquement sur la branche main (pas develop)
     if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Télécharge l'image Docker du job précédent
       - name: Download Docker image artifact
         uses: actions/download-artifact@v4
         with:
           name: docker-image
           path: /tmp
 
+      # Charge l'image Docker dans le moteur Docker local
       - name: Load Docker image
         run: |
           docker load --input /tmp/image.tar
 
+      # Scanne l'image pour les vulnérabilités critiques et haute sévérité
       - name: Scan Docker image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
           format: 'sarif'
           output: 'trivy-container-results.sarif'
-          severity: 'CRITICAL,HIGH'
+          severity: 'CRITICAL,HIGH'  # Scanne seulement les vulns critiques/hautes
 
+      # Envoie les résultats à GitHub Security
       - name: Upload container scan results
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-container-results.sarif'
 
+      # Génère un rapport HTML lisible
       - name: Generate container scan HTML report
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
-          format: 'template'
-          template: '@/contrib/html.tpl'
+          format: 'table'
           output: 'container-report.html'
 
+      # Sauvegarde le rapport
       - name: Upload container report
         if: always()
         uses: actions/upload-artifact@v4
@@ -231,46 +263,54 @@ jobs:
           retention-days: 30
 
   # -----------------------------------------------------------------
-  # JOB 5 : PUSH À DOCKER HUB
+  # JOB 5 : PUSH À GITHUB CONTAINER REGISTRY
+  # Pousse l'image Docker au registre GitHub (main seulement)
   # -----------------------------------------------------------------
   docker_push:
-    name: Push to Docker Hub
+    name: Push to GitHub Container Registry
     runs-on: ubuntu-latest
-    needs: image_scanning
+    needs: image_scanning  # Attend que le scan de sécurité soit réussi
 
     permissions:
       contents: read
-      packages: write
+      packages: write    # Peut pousser vers le registre
 
+    # S'exécute uniquement sur la branche main (après tous les checks)
     if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Configure QEMU pour la compilation multi-architecture
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
+      # Configure Docker Buildx pour les builds optimisés
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
+      # Se connecte à GitHub Container Registry (utilise GITHUB_TOKEN automatique)
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+          registry: ghcr.io              # Registre GitHub
+          username: ${{ github.actor }}  # Utilisateur qui fait le push
+          password: ${{ secrets.GITHUB_TOKEN }}  # Token GitHub automatique
 
+      # Crée et pousse l'image Docker vers GitHub Container Registry
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: true
+          push: true  # Pousse l'image (contrairement au job 3)
           tags: |
-            ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
-            ${{ env.DOCKER_IMAGE }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}  # Tag avec SHA du commit
+            ${{ env.DOCKER_IMAGE }}:latest                 # Tag "latest" pour la dernière version
+          cache-from: type=gha           # Réutilise le cache GitHub Actions
+          cache-to: type=gha,mode=max    # Sauvegarde le cache pour les prochains builds
 
+      # Affiche un message de succès
       - name: Notify push success
-        if: success()
-        run: echo "✅ Image pushed successfully to Docker Hub"
+        if: success()  # S'exécute uniquement si tout a réussi
+        run: echo "✅ Image pushed successfully to GitHub Container Registry"
