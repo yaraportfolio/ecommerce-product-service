@@ -16,20 +16,21 @@ Microservice de gestion du catalogue produits — partie de l'architecture micro
 ## 🗺️ Positionnement dans l'Architecture
 
 ```
-                Frontend (192.168.56.114)
-                        │
-                        ▼
-┌─────────────────────────────────────────────┐
-│  Kubernetes Cluster (192.168.56.111)        │
-│  Ingress :30080                             │
-│  ├── 🔐 auth-service    :3001               │
-│  ├── 📦 product-service :3002  ← Ce service │
-│  ├── 🛒 order-service   :3003               │
-│  └── ⭐ review-service  :3004               │
-└─────────────────────────────────────────────┘
-                        │
-                        ▼
-  MariaDB (192.168.56.115:3306) — ecommerce_db
+                 Frontend (192.168.56.114)
+                          │
+                          ▼
+      ┌──────────────────────────────────────┐
+      │  Kubernetes Cluster (192.168.56.111) │
+      │  Ingress :30080                      │
+      │  ├── 🔐 auth-service    :3001        │
+      │  ├── 📦 product-service :3002 ← HERE │
+      │  ├── 🛒 order-service   :3003        │
+      │  └── ⭐ review-service  :3004        │
+      └──────────────────────────────────────┘
+                          │
+                          ▼
+          MariaDB (192.168.56.115:3306)
+               ecommerce_db
 ```
 
 **Rôle de ce service :** Expose le catalogue produits (liste, recherche, filtrage par catégorie, CRUD admin). Service public — pas d'authentification requise pour la lecture.
@@ -53,31 +54,33 @@ Microservice de gestion du catalogue produits — partie de l'architecture micro
 
 ---
 
-## 🔄 Pipeline CI/CD (GitHub Actions)
+## 🔄 Pipeline CI/CD
 
 ```
-                    GitHub Push / Pull Request
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Job 1 : Test API (parallèle)                              │
-│  └── npm install + test-api.sh : 10-13 tests endpoints      │
-│  └── Dépendance : MariaDB 10.11                             │
-├─────────────────────────────────────────────────────────────┤
-│  Job 2 : Dependency Scanning (parallèle)                    │
-│  └── Trivy FS scan : scanne les vulnérabilités dépendances  │
-├─────────────────────────────────────────────────────────────┤
-│  Job 3 : Build Docker Image (après tests réussis)          │
-│  └── Docker multi-stage : Node 20 Alpine                    │
-│  └── Sauvegarde l'image en artefact                         │
-├─────────────────────────────────────────────────────────────┤
-│  Job 4 : Scan Container (main uniquement)                  │
-│  └── Trivy container scan : détecte vulnérabilités critiques│
-├─────────────────────────────────────────────────────────────┤
-│  Job 5 : Push to GHCR (main uniquement)                    │
-│  └── GitHub Container Registry : ghcr.io/...               │
-│  └── Tags : commit-sha + latest                            │
-└─────────────────────────────────────────────────────────────┘
+              GitHub Push / Pull Request
+                        │
+                        ▼
+    ┌───────────────────────────────────────┐
+    │  Job 1 : Test API (parallèle)         │
+    │  └── npm install + test-api.sh        │
+    │  └── 10-13 tests endpoints            │
+    │  └── MariaDB 10.11 (dépendance)       │
+    ├───────────────────────────────────────┤
+    │  Job 2 : Dependency Scanning          │
+    │  └── Trivy FS scan                    │
+    │  └── Vulnérabilités des packages      │
+    ├───────────────────────────────────────┤
+    │  Job 3 : Build Docker Image           │
+    │  └── Docker multi-stage : Node 20     │
+    │  └── Image en artefact                │
+    ├───────────────────────────────────────┤
+    │  Job 4 : Scan Container (main only)   │
+    │  └── Trivy container scan             │
+    ├───────────────────────────────────────┤
+    │  Job 5 : Push to GHCR (main only)     │
+    │  └── ghcr.io/...                      │
+    │  └── Tags : sha + latest              │
+    └───────────────────────────────────────┘
 ```
 
 **Fichier CI/CD :**
