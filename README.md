@@ -228,12 +228,11 @@ cd testapi && bash test-api.sh
 
 | Composant | Repository |
 |-----------|------------|
+| 🌐 Frontend | [ecommerce-frontend](https://github.com/yaraportfolio/ecommerce-frontend) |
 | 🔐 Auth Service | [auth-service](https://github.com/yaraportfolio/ecommerce-auth-service) |
 | 🛒 Order Service | [order-service](https://github.com/yaraportfolio/ecommerce-order-service) |
 | ⭐ Review Service | [review-service](https://github.com/yaraportfolio/ecommerce-review-service) |
-| 📦 Product Service | [product-service](https://github.com/yaraportfolio/ecommerce-product-service) |
-| ⎈ Helm Chart | [k8s-helm-chart](https://github.com/yaraportfolio/k8s-helm-chart) |
-| 🗄️ Base de données | [ecommerce-database](https://github.com/yaraportfolio/ecommerce-database) |
+| ⎈ Helm Chart | [ecommerce-k8s-helm](https://github.com/yaraportfolio/ecommerce-k8s-helm) |
 
 ---
 
