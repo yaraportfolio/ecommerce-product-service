@@ -1,4 +1,4 @@
-# 📦 Product Service — Microservice Catalogue
+# 📦 Product Service - Microservice Catalogue
 
 ![Node.js](https://img.shields.io/badge/Node.js-20-339933?logo=nodedotjs&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-4.x-000000?logo=express&logoColor=white)
@@ -7,9 +7,9 @@
 ![Trivy](https://img.shields.io/badge/Trivy-security_scan-1904DA?logo=aqua&logoColor=white)
 ![GHCR](https://img.shields.io/badge/GHCR-registry-24292e?logo=github&logoColor=white)
 
-Microservice de gestion du catalogue produits — partie de l'architecture microservices e-commerce déployée sur **Kubernetes** (Helm) ou **Docker Swarm** (Kong Gateway).
+Microservice de gestion du catalogue produits - partie de l'architecture microservices e-commerce déployée sur **Kubernetes** (Helm) ou **Docker Swarm** (Kong Gateway).
 
-> 💡 **Objectif Portfolio** : Ce service illustre le pipeline CI/CD complet avec GitHub Actions — test → build Docker → scan de vulnérabilités → push GitHub Container Registry → déploiement Helm.
+> 💡 **Objectif Portfolio** : Ce service illustre le pipeline CI/CD complet avec GitHub Actions - test → build Docker → scan de vulnérabilités → push GitHub Container Registry → déploiement Helm.
 
 ---
 
@@ -33,7 +33,7 @@ Microservice de gestion du catalogue produits — partie de l'architecture micro
                ecommerce_db
 ```
 
-**Rôle de ce service :** Expose le catalogue produits (liste, recherche, filtrage par catégorie, CRUD admin). Service public — pas d'authentification requise pour la lecture.
+**Rôle de ce service :** Expose le catalogue produits (liste, recherche, filtrage par catégorie, CRUD admin). Service public - pas d'authentification requise pour la lecture.
 
 ---
 
@@ -41,16 +41,16 @@ Microservice de gestion du catalogue produits — partie de l'architecture micro
 
 | Méthode | Endpoint | Auth | Description |
 |---------|----------|:----:|-------------|
-| `GET` | `/api/products` | — | Liste tous les produits |
-| `GET` | `/api/products/:id` | — | Détails d'un produit |
-| `GET` | `/api/products/search?q=...` | — | Recherche fulltext |
-| `GET` | `/api/products/category/:cat` | — | Filtrer par catégorie |
+| `GET` | `/api/products` | - | Liste tous les produits |
+| `GET` | `/api/products/:id` | - | Détails d'un produit |
+| `GET` | `/api/products/search?q=...` | - | Recherche fulltext |
+| `GET` | `/api/products/category/:cat` | - | Filtrer par catégorie |
 | `POST` | `/api/products` | Admin | Créer un produit |
 | `PUT` | `/api/products/:id` | Admin | Modifier un produit |
 | `DELETE` | `/api/products/:id` | Admin | Supprimer un produit |
-| `GET` | `/api/products/health` | — | Liveness probe |
-| `GET` | `/api/products/ready` | — | Readiness probe |
-| `GET` | `/api/products/metrics` | — | Métriques Prometheus |
+| `GET` | `/api/products/health` | - | Liveness probe |
+| `GET` | `/api/products/ready` | - | Readiness probe |
+| `GET` | `/api/products/metrics` | - | Métriques Prometheus |
 
 ---
 
@@ -84,7 +84,7 @@ Microservice de gestion du catalogue produits — partie de l'architecture micro
 ```
 
 **Fichier CI/CD :**
-- `.github/workflows/ci.yml` — Pipeline GitHub Actions complète avec tests, scans de sécurité et déploiement
+- `.github/workflows/ci.yml` - Pipeline GitHub Actions complète avec tests, scans de sécurité et déploiement
 
 ---
 
@@ -123,8 +123,8 @@ npm test
 | `DB_PORT` | Port MariaDB | `3306` | ✅ |
 | `DB_NAME` | Base de données | `ecommerce_db` | ✅ |
 | `DB_USER` | Utilisateur BD | `devops_user` | ✅ |
-| `DB_PASSWORD` | Mot de passe BD | — | ✅ |
-| `JWT_SECRET` | Clé JWT (pour endpoints Admin) | — | ✅ |
+| `DB_PASSWORD` | Mot de passe BD | - | ✅ |
+| `JWT_SECRET` | Clé JWT (pour endpoints Admin) | - | ✅ |
 
 ---
 
@@ -238,6 +238,6 @@ cd testapi && bash test-api.sh
 
 ## 👨‍💻 Auteur
 
-**Yara Mahi Mohamed** — Portfolio DevOps & SRE
+**Yara Mahi Mohamed** - Portfolio DevOps & SRE
 
 *⭐ N'oubliez pas de star ce repo si vous le trouvez utile !*
